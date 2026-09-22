@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-buglens}
+      POSTGRES_USER: ${POSTGRES_USER:-buglens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-buglens}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  shopsphere-backend:
+    build: ./apps/shopsphere/backend
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      - postgres
+
+  shopsphere-frontend:
+    build: ./apps/shopsphere/frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - shopsphere-backend
+
+  payment-mock:
+    build: ./apps/shopsphere/payment-mock
+    ports:
+      - "8003:8003"
+
+  ai-investigator:
+    build: ./ai/investigator
+    ports:
+      - "8002:8002"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+  dashboard:
+    build: ./apps/dashboard
+    ports:
+      - "3001:3001"
+    depends_on:
+      - shopsphere-backend
+      - ai-investigator
+
+volumes:
+  postgres_data:
