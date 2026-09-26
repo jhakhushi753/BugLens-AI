@@ -54,6 +54,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .analyst-card { display: flex; align-items: center; gap: 9px; padding: 12px 6px 3px; border-top: 1px solid #33413b; }
 .analyst-avatar { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: #233126; background: #e3ebd4; font-size: 9px; font-weight: 800; }
 .online-dot { display: inline-block; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #9cca47; }
+.online-dot.offline { background: #dd7764; }
 
 .main-area { min-height: 100vh; margin-left: 238px; background-color: #f4f6f2; background-image: linear-gradient(rgba(39, 57, 45, .018) 1px, transparent 1px), linear-gradient(90deg, rgba(39, 57, 45, .018) 1px, transparent 1px); background-size: 24px 24px; }
 .topbar { position: sticky; z-index: 3; top: 0; display: flex; height: 61px; align-items: center; justify-content: space-between; padding: 0 39px; border-bottom: 1px solid #e6e9e3; background: rgba(247, 248, 245, .94); backdrop-filter: blur(12px); }
@@ -207,6 +208,8 @@ tbody td:first-child { padding-left: 15px; }
 .form-footer > span { display: flex; align-items: center; gap: 6px; color: #859087; font-size: 8px; }
 .form-footer > span svg { color: #77944c; }
 .form-footer > div { display: flex; gap: 8px; }
+.form-footer > div { align-items: center; flex-wrap: wrap; }
+.form-error { color: #a14f40; font-size: 8px; }
 
 .detail-backdrop { padding: 16px; }
 .detail-modal { display: flex; width: min(900px, 100%); height: min(94vh, 920px); flex-direction: column; overflow: hidden; border: 1px solid #e0e6df; border-radius: 8px; background: #fbfcfa; box-shadow: 0 26px 90px rgba(12, 25, 17, .24); animation: rise-in 180ms ease-out; }

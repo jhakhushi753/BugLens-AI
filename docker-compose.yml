@@ -36,13 +36,30 @@ services:
       timeout: 3s
       retries: 12
 
+  ai-investigator:
+    build: ./ai/investigator
+    ports:
+      - "8002:8002"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-20250514}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/api/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   dashboard:
     build:
       context: ./apps/dashboard
       args:
         VITE_SHOPSPHERE_API: http://localhost:8000
+        VITE_ANALYSIS_API: http://localhost:8002
     ports:
       - "3001:3001"
     depends_on:
       shopsphere-backend:
+        condition: service_healthy
+      ai-investigator:
         condition: service_healthy

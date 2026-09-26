@@ -1,6 +1,6 @@
 🔍 BugLens AI - Intelligent Test Failure Analysis
 
-A runnable ShopSphere storefront and BugLens investigation dashboard prototype. The current investigator uses evidence-based local rules and browser storage; it does not yet connect to Claude or a database.
+A runnable ShopSphere storefront and BugLens investigation dashboard prototype. A FastAPI investigator returns structured reports using evidence-based rules by default or Claude when `ANTHROPIC_API_KEY` is configured. Dashboard reports are saved in browser storage; there is no report database yet.
 
 ShopSphere failure → captured evidence → BugLens report → source export
 
@@ -73,7 +73,7 @@ json
 │  🔧 Services (FastAPI)                              │
 │     ├─ ShopSphere Backend (with 3 bugs)            │
 │     ├─ Mock Payment API (failure simulator)        │
-│     └─ AI Investigator (planned, not implemented)  │
+│     └─ AI Investigator API (rules / optional Claude)│
 │                                                     │
 │  🧪 Automation (Playwright)                         │
 │     └─ Tests that trigger bugs                     │
@@ -167,7 +167,7 @@ buglens-ai/
 │       └── test_shopsphere.py  🧪 Playwright tests
 │
 ├── ai/
-│   └── investigator/         🧠 Claude-powered analysis
+│   └── investigator/         🧠 FastAPI investigation agent
 │
 ├── data/
 │   ├── failures/             📋 Captured failures
@@ -176,7 +176,7 @@ buglens-ai/
 ├── docker-compose.yml        🐳 All services
 └── DEVELOPMENT_GUIDE.md      📖 Full setup guide
 🛠️ Development Setup
-For local service commands and the failure-import workflow, see [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md). The current stack contains the ShopSphere storefront, ShopSphere API, payment mock, and BugLens dashboard. The database and remote AI service from the original architecture are not implemented.
+For local service commands and the failure-import workflow, see [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md). The current stack contains the ShopSphere storefront, ShopSphere API, payment mock, BugLens dashboard, and AI Investigator. Database storage from the original architecture is not implemented.
 🧪 Running Tests
 Execute All Tests
 bash
@@ -191,7 +191,7 @@ Generate HTML Report
 bash
 pytest automation/tests/ --html=report.html --self-contained-html
 🤖 Failure Analysis
-The current dashboard applies local evidence-based rules. Start ShopSphere and choose **Import ShopSphere** to load its starter and captured failures. This prototype does not currently call Claude or expose an AI analysis API.
+The dashboard submits new and imported failures to the AI Investigator API at port 8002. Without `ANTHROPIC_API_KEY`, reports are generated in rules-demo mode and marked with `RULE_BASED_FALLBACK`; with a key, the agent requests a structured report from Claude.
 🔑 Environment Variables
 
 Optional runtime setting:

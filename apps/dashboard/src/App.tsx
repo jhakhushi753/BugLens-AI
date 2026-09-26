@@ -5,12 +5,18 @@ import {
   CircleHelp, Clock3, ExternalLink, FileCode2, FlaskConical, LayoutDashboard, ListChecks, Network, Plus,
   Search, Settings, ShieldCheck, Sparkles, Trash2, Upload, X,
 } from 'lucide-react'
-import { emptyFailure, investigate, makeSampleReports } from './investigator'
+import { emptyFailure } from './investigator'
 import type { FailureInput, InvestigationReport } from './types'
 
 type Page = 'Overview' | 'Investigations' | 'Test runs' | 'Settings'
 const storageKey = 'buglens-investigations-v1'
+const legacyDemoReportIds = new Set([
+  'BL-RUN-2841-TC-104',
+  'BL-RUN-2838-TC-208',
+  'BL-RUN-2834-TC-311',
+])
 const shopsphereApi = (import.meta as ImportMeta & { env: { VITE_SHOPSPHERE_API?: string } }).env.VITE_SHOPSPHERE_API || 'http://localhost:8000'
+const analysisApi = (import.meta as ImportMeta & { env: { VITE_ANALYSIS_API?: string } }).env.VITE_ANALYSIS_API || 'http://localhost:8002'
 const navItems: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Investigations', icon: ListChecks },
@@ -20,11 +26,13 @@ const navItems: { label: Page; icon: typeof LayoutDashboard }[] = [
 function readReports(): InvestigationReport[] {
   try {
     const saved = localStorage.getItem(storageKey)
-    if (saved) return JSON.parse(saved) as InvestigationReport[]
+    if (!saved) return []
+    const reports = JSON.parse(saved) as InvestigationReport[]
+    return Array.isArray(reports) ? reports.filter((report) => !legacyDemoReportIds.has(report.bug_id)) : []
   } catch {
     localStorage.removeItem(storageKey)
   }
-  return makeSampleReports()
+  return []
 }
 
 function timeAgo(value: string) {
@@ -45,6 +53,17 @@ function exportReport(report: InvestigationReport) {
   URL.revokeObjectURL(url)
 }
 
+async function requestInvestigation(input: FailureInput): Promise<InvestigationReport> {
+  const response = await fetch(`${analysisApi}/api/analyze-failure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const result = await response.json().catch(() => ({})) as InvestigationReport & { detail?: string }
+  if (!response.ok) throw new Error(result.detail || `Investigator returned ${response.status}`)
+  return result
+}
+
 function App() {
   const [reports, setReports] = useState<InvestigationReport[]>(readReports)
   const [page, setPage] = useState<Page>('Overview')
@@ -55,8 +74,18 @@ function App() {
   const [integrationMessage, setIntegrationMessage] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [agentMode, setAgentMode] = useState<'checking' | 'claude' | 'rules-demo' | 'offline'>('checking')
 
   useEffect(() => localStorage.setItem(storageKey, JSON.stringify(reports)), [reports])
+  useEffect(() => {
+    fetch(`${analysisApi}/api/health`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Investigator unavailable')
+        const health = await response.json() as { mode: 'claude' | 'rules-demo' }
+        setAgentMode(health.mode)
+      })
+      .catch(() => setAgentMode('offline'))
+  }, [])
 
   const filteredReports = useMemo(() => reports.filter((report) => {
     const query = search.trim().toLowerCase()
@@ -72,16 +101,12 @@ function App() {
   const applicationBugs = reports.filter((report) => report.classification === 'APPLICATION_BUG').length
   const flaky = reports.filter((report) => report.flakiness_analysis.is_flaky).length
 
-  function addReport(input: FailureInput) {
-    const report = investigate(input)
+  async function addReport(input: FailureInput) {
+    const report = await requestInvestigation(input)
     setReports((current) => [report, ...current])
     setShowNew(false)
     setPage('Investigations')
     setActiveReport(report)
-  }
-
-  function restoreSamples() {
-    setReports(makeSampleReports())
   }
 
   async function importShopSphereFailures() {
@@ -91,13 +116,13 @@ function App() {
       const response = await fetch(`${shopsphereApi}/api/buglens/failures`)
       if (!response.ok) throw new Error(`ShopSphere returned ${response.status}`)
       const failures = await response.json() as FailureInput[]
-      const imported = failures.map((failure) => investigate({ ...emptyFailure, ...failure }))
+      const imported = await Promise.all(failures.map((failure) => requestInvestigation({ ...emptyFailure, ...failure })))
       const known = new Set(reports.map((report) => report.bug_id))
       const newReports = imported.filter((report) => !known.has(report.bug_id))
       if (newReports.length) setReports((current) => [...newReports.filter((report) => !current.some((saved) => saved.bug_id === report.bug_id)), ...current])
       setIntegrationMessage(newReports.length ? `Imported ${newReports.length} ShopSphere failure${newReports.length === 1 ? '' : 's'}.` : 'ShopSphere failures are already up to date.')
     } catch (error) {
-      setIntegrationMessage(error instanceof Error ? `Could not connect to ShopSphere: ${error.message}` : 'Could not connect to ShopSphere.')
+      setIntegrationMessage(error instanceof Error ? `Could not import and analyze ShopSphere failures: ${error.message}` : 'Could not import and analyze ShopSphere failures.')
     } finally {
       setIsImporting(false)
     }
@@ -169,8 +194,8 @@ function App() {
           <button className={`nav-item ${page === 'Settings' ? 'active' : ''}`} onClick={() => setPage('Settings')}><Settings size={17} /><span>Settings</span></button>
           <div className="analyst-card">
             <div className="analyst-avatar">BL</div>
-            <span className="analyst-copy"><strong>Investigator</strong><small>Local analysis mode</small></span>
-            <span className="online-dot" />
+            <span className="analyst-copy"><strong>AI Investigator</strong><small>{agentMode === 'claude' ? 'Claude agent' : agentMode === 'rules-demo' ? 'Rules demo · no key' : agentMode === 'offline' ? 'Service offline' : 'Connecting...'}</small></span>
+            <span className={`online-dot ${agentMode === 'offline' ? 'offline' : ''}`} />
           </div>
         </div>
       </aside>
@@ -207,11 +232,10 @@ function App() {
                 <div className="section-heading"><div><h2>Workspace</h2><p>Current project and local data preferences.</p></div></div>
                 <div className="setting-row"><div><strong>Active application</strong><span>ShopSphere</span></div><span className="setting-value">Local workspace</span></div>
                 <div className="setting-row"><div><strong>Report storage</strong><span>Saved in this browser using local storage.</span></div><span className="setting-value status-local"><span className="online-dot" /> On this device</span></div>
-                <div className="setting-row"><div><strong>Analysis engine</strong><span>Evidence-based local rules. No remote AI service is connected.</span></div><span className="setting-value">Local mode</span></div>
+                <div className="setting-row"><div><strong>Analysis engine</strong><span>{agentMode === 'claude' ? 'Claude analyzes evidence using a structured report schema.' : agentMode === 'rules-demo' ? 'Evidence-based rules are active. Set ANTHROPIC_API_KEY to enable Claude.' : agentMode === 'offline' ? 'The investigator API is unavailable on port 8002.' : 'Checking investigator service...'}</span></div><span className="setting-value">{agentMode === 'claude' ? 'Claude' : agentMode === 'rules-demo' ? 'Rules demo' : agentMode === 'offline' ? 'Offline' : 'Checking'}</span></div>
               </div>
               <div className="settings-section danger-section">
-                <div className="section-heading"><div><h2>Investigation data</h2><p>Restore the sample reports or clear this browser's saved records.</p></div></div>
-                <div className="setting-row"><div><strong>Restore sample data</strong><span>Replace local records with the original ShopSphere examples.</span></div><button className="secondary-button" onClick={restoreSamples}><Activity size={15} /> Restore samples</button></div>
+                <div className="section-heading"><div><h2>Investigation data</h2><p>Clear reports saved in this browser.</p></div></div>
                 <div className="setting-row"><div><strong>Clear all reports</strong><span>This only affects data stored in this browser.</span></div><button className="danger-button" onClick={() => { if (window.confirm('Delete all investigations saved in this browser?')) setReports([]) }}><Trash2 size={15} /> Clear records</button></div>
               </div>
             </section>
@@ -263,7 +287,7 @@ function App() {
         </div>
       </main>
 
-      {showNew && <NewInvestigation onClose={() => setShowNew(false)} onSubmit={addReport} />}
+      {showNew && <NewInvestigation onClose={() => setShowNew(false)} onSubmit={addReport} agentMode={agentMode} />}
       {activeReport && <ReportDetail report={activeReport} onClose={() => setActiveReport(null)} onExport={() => exportReport(activeReport)} />}
     </div>
   )
@@ -284,21 +308,31 @@ function ReportRow({ report, onClick }: { report: InvestigationReport; onClick: 
   </tr>
 }
 
-function NewInvestigation({ onClose, onSubmit }: { onClose: () => void; onSubmit: (input: FailureInput) => void }) {
+function NewInvestigation({ onClose, onSubmit, agentMode }: { onClose: () => void; onSubmit: (input: FailureInput) => Promise<void>; agentMode: 'checking' | 'claude' | 'rules-demo' | 'offline' }) {
   const [form, setForm] = useState<FailureInput>({ ...emptyFailure, run_id: `RUN-${Math.floor(2900 + Math.random() * 99)}`, test_id: `TC-${Math.floor(100 + Math.random() * 899)}` })
   const [showMore, setShowMore] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const set = (key: keyof FailureInput, value: string) => setForm((current) => ({ ...current, [key]: value }))
   const requiredMissing = !form.test_name.trim() || !form.failure_message.trim()
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
     if (requiredMissing) return
-    onSubmit(form)
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      await onSubmit(form)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'The investigator could not analyze this failure.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="new-investigation-title">
-      <header className="modal-header"><div><span className="modal-kicker"><span className="eyebrow-line" /> FAILURE INTAKE</span><h2 id="new-investigation-title">New investigation</h2><p>Start with the failure and attach whatever evidence you have.</p></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={19} /></button></header>
+      <header className="modal-header"><div><span className="modal-kicker"><span className="eyebrow-line" /> FAILURE INTAKE</span><h2 id="new-investigation-title">New AI investigation</h2><p>{agentMode === 'claude' ? 'Claude will analyze the evidence and return a structured report.' : agentMode === 'rules-demo' ? 'The agent is in rules-demo mode until an Anthropic key is configured.' : 'Submit failure evidence to the investigator service.'}</p></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={19} /></button></header>
       <form onSubmit={submit}>
         <div className="form-scroll">
           <div className="form-section-label">TEST CONTEXT</div>
@@ -329,7 +363,7 @@ function NewInvestigation({ onClose, onSubmit }: { onClose: () => void; onSubmit
             <FormField label="Artifact paths" value={form.artifact_paths} onChange={(value) => set('artifact_paths', value)} placeholder="Screenshot, video, trace paths" />
           </div>}
         </div>
-        <footer className="form-footer"><span><ShieldCheck size={14} /> Incomplete evidence will be flagged for review.</span><div><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit" disabled={requiredMissing}><Sparkles size={15} /> Investigate failure</button></div></footer>
+        <footer className="form-footer"><span><ShieldCheck size={14} /> Incomplete evidence will be flagged for review.</span><div>{submitError && <span className="form-error" role="alert">{submitError}</span>}<button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit" disabled={requiredMissing || submitting}><Sparkles size={15} /> {submitting ? 'Analyzing...' : 'Analyze failure'}</button></div></footer>
       </form>
     </section>
   </div>

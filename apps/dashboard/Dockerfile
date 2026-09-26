@@ -4,7 +4,9 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 ARG VITE_SHOPSPHERE_API=http://localhost:8000
+ARG VITE_ANALYSIS_API=http://localhost:8002
 ENV VITE_SHOPSPHERE_API=$VITE_SHOPSPHERE_API
+ENV VITE_ANALYSIS_API=$VITE_ANALYSIS_API
 RUN npm run build
 
 FROM node:20-alpine

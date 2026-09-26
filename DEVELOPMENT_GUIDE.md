@@ -1,3 +1,4 @@
+This prototype runs a ShopSphere storefront, its API and payment simulator, the BugLens dashboard, and the BugLens AI Investigator. Reports are saved in browser storage; there is no report database yet. The investigator uses evidence-based rules without an Anthropic key and Claude when `ANTHROPIC_API_KEY` is configured.
 # Development Guide
 
 This prototype runs a ShopSphere storefront, its API and payment simulator, and the BugLens dashboard. The investigator currently uses local evidence-based rules and browser storage; no external AI service or database is required.
@@ -21,10 +22,13 @@ The services are available at:
 - BugLens dashboard: http://localhost:3001
 - ShopSphere API and Swagger docs: http://localhost:8000/docs
 - Payment mock: http://localhost:8003/health
+- AI Investigator docs: http://localhost:8002/docs
 
 ## Import failures and export ShopSphere
 
 In the dashboard, select **Import ShopSphere** to load the four starter defect reports and any captured failures. The storefront automatically reports its incorrect price sort to the API; failed checkout requests are captured by the backend. Failed pytest cases are posted automatically when the API is running.
+New dashboard investigations and imported failures are sent to the AI Investigator. Set `ANTHROPIC_API_KEY` in the shell or a root `.env` file to use Claude; without it, the service reports `rules-demo` mode and marks generated reports with `RULE_BASED_FALLBACK`.
+The report database from the original prototype plan is not part of the current runnable stack.
 
 Select **Export application** in the dashboard to download `ShopSphere-source.zip`. The archive contains the storefront, API, payment simulator, compose configuration, and tests; it excludes dependencies and build output.
 
