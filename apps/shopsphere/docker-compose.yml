@@ -1,0 +1,36 @@
+services:
+  payment-mock:
+    build: ./payment-mock
+    ports:
+      - "8003:8003"
+    environment:
+      COUPON_FAILURE_RATE: ${COUPON_FAILURE_RATE:-0.6}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      PAYMENT_API_URL: http://payment-mock:8003
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    depends_on:
+      payment-mock:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  storefront:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -1,52 +1,48 @@
-version: "3.9"
-
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-buglens}
-      POSTGRES_USER: ${POSTGRES_USER:-buglens}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-buglens}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   shopsphere-backend:
     build: ./apps/shopsphere/backend
     ports:
       - "8000:8000"
     environment:
       PYTHONUNBUFFERED: "1"
+      PAYMENT_API_URL: http://payment-mock:8003
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
     depends_on:
-      - postgres
+      payment-mock:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
   shopsphere-frontend:
     build: ./apps/shopsphere/frontend
     ports:
       - "3000:3000"
     depends_on:
-      - shopsphere-backend
+      shopsphere-backend:
+        condition: service_healthy
 
   payment-mock:
     build: ./apps/shopsphere/payment-mock
     ports:
       - "8003:8003"
-
-  ai-investigator:
-    build: ./ai/investigator
-    ports:
-      - "8002:8002"
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COUPON_FAILURE_RATE: ${COUPON_FAILURE_RATE:-0.6}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
   dashboard:
-    build: ./apps/dashboard
+    build:
+      context: ./apps/dashboard
+      args:
+        VITE_SHOPSPHERE_API: http://localhost:8000
     ports:
       - "3001:3001"
     depends_on:
-      - shopsphere-backend
-      - ai-investigator
-
-volumes:
-  postgres_data:
+      shopsphere-backend:
+        condition: service_healthy

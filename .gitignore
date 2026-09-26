@@ -2,6 +2,10 @@ __pycache__/
 *.pyc
 .env
 node_modules/
+dist/
+venv/
+.venv/
+apps/shopsphere/backend/myenv/
 .dist/
 .pytest_cache/
 .vite/

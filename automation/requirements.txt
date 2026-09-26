@@ -1,0 +1,4 @@
+-r ../apps/shopsphere/backend/requirements.txt
+-r ../apps/shopsphere/payment-mock/requirements.txt
+pytest==8.3.4
+httpx==0.28.1

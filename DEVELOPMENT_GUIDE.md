@@ -1,70 +1,59 @@
 # Development Guide
 
-This guide explains how to set up the BugLens AI workspace locally and run the app stack.
+This prototype runs a ShopSphere storefront, its API and payment simulator, and the BugLens dashboard. The investigator currently uses local evidence-based rules and browser storage; no external AI service or database is required.
 
 ## Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- Docker and Docker Compose
-- Git
-- An Anthropic API key
+- Docker Desktop with Docker Compose
+- Or Python 3.11+ and Node.js 18+ for local service runs
 
-## Environment setup
+## Start the full stack
 
-Create a local environment file:
+From the repository root:
 
 ```bash
-cp .env.example .env
+docker compose up --build
 ```
 
-Populate the values in `.env`:
+The services are available at:
 
-```env
-ANTHROPIC_API_KEY=your_key_here
-POSTGRES_DB=buglens
-POSTGRES_USER=buglens
-POSTGRES_PASSWORD=buglens
-```
+- ShopSphere storefront: http://localhost:3000
+- BugLens dashboard: http://localhost:3001
+- ShopSphere API and Swagger docs: http://localhost:8000/docs
+- Payment mock: http://localhost:8003/health
 
-## Start services
+## Import failures and export ShopSphere
+
+In the dashboard, select **Import ShopSphere** to load the four starter defect reports and any captured failures. The storefront automatically reports its incorrect price sort to the API; failed checkout requests are captured by the backend. Failed pytest cases are posted automatically when the API is running.
+
+Select **Export application** in the dashboard to download `ShopSphere-source.zip`. The archive contains the storefront, API, payment simulator, compose configuration, and tests; it excludes dependencies and build output.
+
+## Run services locally
+
+Install backend packages with `pip install -r apps/shopsphere/backend/requirements.txt`, then run the API:
 
 ```bash
-docker compose up --build -d
+cd apps/shopsphere/backend
+uvicorn main:app --reload --port 8000
 ```
 
-This should start the backend, frontend, AI investigator, mock payment API, and supporting infrastructure.
+Run the payment simulator in another terminal with its requirements and `uvicorn main:app --reload --port 8003` from `apps/shopsphere/payment-mock`. Run the storefront with `npm install` and `npm run dev` from `apps/shopsphere/frontend`. Run the dashboard with `npm install` and `npm run dev` from `apps/dashboard`.
 
-## Run the test suite
+## Run the QA suite
+
+Install the test dependencies with `pip install -r automation/requirements.txt`, start the full stack, then run:
 
 ```bash
 pytest automation/tests/test_shopsphere.py -v
 ```
 
-## Local app endpoints
+Three tests are expected to fail while the intentional backend defects are present. The pytest hook attempts to post each failure to ShopSphere at `/api/buglens/failures`; use **Import ShopSphere** to bring them into the dashboard.
 
-- Frontend: http://localhost:3000
-- Dashboard: http://localhost:3001
-- ShopSphere backend: http://localhost:8000
-- AI investigator: http://localhost:8002
-- Mock payment API: http://localhost:8003
+## Intentional defects
 
-## Troubleshooting
+- Cart subtotal omits item quantity.
+- Coupon payments fail intermittently (60% default failure rate).
+- Failed payments clear the cart and leave the order pending.
+- **Price: low to high** sorts products from high to low.
 
-### Docker build issues
-
-- Ensure Docker is running
-- Rebuild with clean cache if needed:
-
-```bash
-docker compose down -v
-docker compose up --build -d
-```
-
-### Missing API key
-
-The AI investigator needs a valid `ANTHROPIC_API_KEY` in `.env`.
-
-### Test failures not appearing
-
-Check the generated artifacts in `data/failures/` and `data/test_runs/`.
+These are QA targets, not recommended production behavior. See [apps/shopsphere/README.md](apps/shopsphere/README.md) for details.

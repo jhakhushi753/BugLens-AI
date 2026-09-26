@@ -1,3 +1,3 @@
-# Payment Mock
+# ShopSphere Payment Mock
 
-This directory will contain the mock payment service used to trigger failure scenarios.
+FastAPI payment simulator on port 8003. Coupon-bearing charges fail intermittently (60% by default) to exercise the checkout failure path. Set `COUPON_FAILURE_RATE` to tune the failure rate.
