@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import sys
 import urllib.error
 from pathlib import Path
@@ -7,6 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
+BACKEND = ROOT / "apps/shopsphere/backend"
+sys.path.insert(0, str(BACKEND))
 
 
 def load_module(name: str, path: Path):
@@ -59,3 +62,32 @@ def test_checkout_payment_failure(monkeypatch):
 def test_frontend_sort_failure_is_available_to_buglens():
     failures = shop_api.buglens_failures()
     assert any(failure["test_name"] == "test_product_price_sort_order" for failure in failures)
+
+
+def test_chatbot_falls_back_when_gemini_quota_is_exhausted(monkeypatch):
+    attempts = 0
+
+    def rate_limited(_payload, _endpoint):
+        nonlocal attempts
+        attempts += 1
+        raise urllib.error.HTTPError(
+            "https://provider.invalid",
+            429,
+            "Too Many Requests",
+            {},
+            io.BytesIO(b"quota exceeded"),
+        )
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-only")
+    monkeypatch.setattr(shop_api.chatbot_agent, "generate", rate_limited)
+    client = TestClient(shop_api.app)
+
+    response = client.post(
+        "/api/chat",
+        json={"messages": [{"role": "user", "content": "Suggest one product for a small desk."}]},
+    )
+
+    assert response.status_code == 200
+    assert "Gemini is rate-limited" in response.json()["reply"]
+    assert "ShopSphere catalog" in response.json()["reply"]
+    assert attempts == 1

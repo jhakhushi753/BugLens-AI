@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -98,6 +99,62 @@ class ChatbotAgent:
             return {"cart": self.cart_snapshot(), "added_product_id": product_id, "quantity_added": quantity}
         return {"error": f"Unknown tool: {name}"}
 
+    def fallback_reply(self, request: ChatRequest) -> str:
+        latest_message = next(
+            (message.content.strip() for message in reversed(request.messages) if message.role == "user"),
+            "",
+        )
+        lowered = latest_message.lower()
+        if any(word in lowered for word in ("cart", "bag", "basket")):
+            cart = self.cart_snapshot()
+            if not cart["items"]:
+                return "Gemini is rate-limited right now, but I can still check your ShopSphere bag: it is currently empty."
+            items = ", ".join(
+                f"{line['product']['name']} x{line['quantity']}" for line in cart["items"]
+            )
+            return (
+                "Gemini is rate-limited right now, but I can still check your ShopSphere bag. "
+                f"It contains {items}. The current subtotal is ${cart['subtotal']:.2f}."
+            )
+
+        ignored_words = {
+            "about", "with", "from", "that", "this", "what", "would", "could", "should",
+            "please", "recommend", "recommendation", "looking", "find", "show", "want", "need",
+            "some", "something", "small", "good", "best", "for", "the", "and", "you", "your",
+            "are", "can", "have", "has", "get", "one", "product", "products", "shop", "item",
+        }
+        query_words = {
+            word for word in re.findall(r"[a-z0-9]+", lowered)
+            if len(word) > 2 and word not in ignored_words
+        }
+        ranked = sorted(
+            (
+                (
+                    sum(
+                        word in f"{product['name']} {product['category']} {product['description']}".lower()
+                        for word in query_words
+                    ),
+                    product,
+                )
+                for product in self.products
+            ),
+            key=lambda result: (result[0], result[1]["rating"]),
+            reverse=True,
+        )
+        matches = [product for score, product in ranked if score > 0][:3]
+        if not matches:
+            matches = [product for _score, product in ranked[:3]]
+        if not matches:
+            return "Gemini is rate-limited right now, and I cannot find catalog items to recommend. Please try again later."
+        suggestions = "; ".join(
+            f"{product['name']} (${product['price']:.2f}, rated {product['rating']}/5)"
+            for product in matches
+        )
+        return (
+            "Gemini is rate-limited right now, but I can still search the ShopSphere catalog. "
+            f"You could look at {suggestions}. Which would you like to know more about?"
+        )
+
     @staticmethod
     def generate(payload: dict[str, Any], endpoint: str) -> dict[str, Any]:
         for attempt in range(3):
@@ -111,7 +168,7 @@ class ChatbotAgent:
                 with urllib.request.urlopen(outbound, timeout=25) as response:
                     return json.loads(response.read().decode("utf-8"))
             except urllib.error.HTTPError as error:
-                if error.code not in {429, 500, 502, 503, 504} or attempt == 2:
+                if error.code not in {500, 502, 503, 504} or attempt == 2:
                     raise
                 time.sleep(0.5 * (attempt + 1))
         raise RuntimeError("Gemini request retry limit reached")
@@ -167,6 +224,12 @@ class ChatbotAgent:
                         }}],
                     })
             raise HTTPException(status_code=502, detail="The shopping assistant could not complete that request.")
-        except (urllib.error.HTTPError, urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError) as error:
+        except urllib.error.HTTPError as error:
+            if error.code == 429:
+                logger.info("Gemini quota reached; answering with catalog-only fallback.")
+                return {"reply": self.fallback_reply(request)}
+            logger.warning("Gemini chat request failed with HTTP %s", error.code)
+            raise HTTPException(status_code=502, detail="The shopping assistant is temporarily unavailable.") from error
+        except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError) as error:
             logger.warning("Gemini chat request failed: %s", error)
             raise HTTPException(status_code=502, detail="The shopping assistant is temporarily unavailable.") from error
