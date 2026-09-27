@@ -2,7 +2,7 @@
 
 ## At a glance
 
-The repository contains a ShopSphere sample storefront, its API and payment simulator, the BugLens dashboard, and a separate investigator API. The investigator uses deterministic rules when no Anthropic key is configured and Claude for structured reports when a key is available.
+The repository contains a ShopSphere sample storefront, its API and payment simulator, the BugLens dashboard, and a separate investigator API. The investigator uses deterministic rules when no Gemini key is configured and Gemini for structured reports when a key is available.
 
 | Service | Technology | Local port | Main responsibility |
 | --- | --- | ---: | --- |
@@ -10,7 +10,7 @@ The repository contains a ShopSphere sample storefront, its API and payment simu
 | ShopSphere API | Python, FastAPI, Pydantic, Uvicorn | 8000 | Catalog/cart/checkout APIs, failure ingestion, ShopSphere ZIP export |
 | Payment mock | Python, FastAPI, Uvicorn | 8003 | Simulated charges; coupon requests fail intermittently by design |
 | BugLens dashboard | React 18, TypeScript, Vite, Lucide React | 3001 | Failure intake/import, investigation list/detail, JSON report export |
-| BugLens Investigator | Python, FastAPI, Pydantic, Anthropic SDK (optional at runtime) | 8002 | Evidence-based fallback or Claude-generated structured investigation reports |
+| BugLens Investigator | Python, FastAPI, Pydantic, Gemini REST API | 8002 | Evidence-based fallback or Gemini-generated structured investigation reports |
 | QA automation | pytest, FastAPI TestClient/httpx | N/A | Regression checks and automatic failure submission to ShopSphere |
 
 ## How a report is created
@@ -21,7 +21,7 @@ flowchart LR
     B -->|GET /api/buglens/failures| C[BugLens Dashboard :3001]
     D[Manual dashboard intake] --> C
     C -->|POST /api/analyze-failure| E[Investigator :8002]
-    E -->|rules-demo or Claude report| C
+    E -->|rules-demo or Gemini report| C
     C -->|browser localStorage| F[Saved reports]
     C -->|POST /api/export| B
     B -->|ShopSphere source ZIP| C
@@ -76,7 +76,7 @@ cd apps/shopsphere/payment-mock
 uvicorn main:app --reload --port 8003
 ```
 
-For the Investigator, open another terminal and activate the same environment. Its requirements include the Anthropic SDK; without an API key, the SDK is not needed for the rules-demo path, but installing the declared requirements prepares the Claude path:
+For the Investigator, open another terminal and activate the same environment. It uses Python's standard-library HTTP client for Gemini, so no separate AI SDK is needed:
 
 ```powershell
 .\apps\shopsphere\backend\myenv\Scripts\Activate.ps1
@@ -89,9 +89,9 @@ The service docs are at `/docs` on ports `8000` and `8002`.
 
 ## Investigator modes
 
-`GET http://localhost:8002/api/health` reports service status and mode. The mode is `rules-demo` when `ANTHROPIC_API_KEY` is absent and `claude` when it is present. In rules-demo mode, reports include the `RULE_BASED_FALLBACK` flag. This makes the analysis source explicit rather than presenting deterministic rules as an AI result.
+`GET http://localhost:8002/api/health` reports service status and mode. The mode is `rules-demo` when `GEMINI_API_KEY` is absent and `gemini` when it is present. In rules-demo mode, reports include the `RULE_BASED_FALLBACK` flag. Gemini quota exhaustion uses the rule fallback, adds `GEMINI_QUOTA_FALLBACK`, and requires human review.
 
-To enable Claude, set `ANTHROPIC_API_KEY` in the environment that launches the Investigator. `ANTHROPIC_MODEL` is optional and defaults to `claude-sonnet-4-20250514`. The agent uses a forced structured-output tool schema matching the dashboard report model. It treats supplied evidence as data, asks for one likely root cause, and forces human review for confidence below `0.70`.
+To enable Gemini, set `GEMINI_API_KEY` in the environment that launches the Investigator. `GEMINI_MODEL` is optional and defaults to `gemini-3.8-flash`. The agent forces a structured function call and validates the response against the dashboard report model. It treats supplied evidence as data, asks for one likely root cause, and forces human review for confidence below `0.70`.
 
 The analysis endpoint is `POST /api/analyze-failure`. Its input is the test context and available failure evidence; its output is the complete investigation report, including classification, severity, confidence, evidence usage, remediation, metadata, and ML-ready fields.
 
@@ -108,8 +108,8 @@ Compose maps the five container ports to the same host ports listed above. It co
 Optional root `.env` values:
 
 ```env
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.8-flash
 COUPON_FAILURE_RATE=0.6
 ```
 

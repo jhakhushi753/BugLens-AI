@@ -74,14 +74,14 @@ function App() {
   const [integrationMessage, setIntegrationMessage] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [agentMode, setAgentMode] = useState<'checking' | 'claude' | 'rules-demo' | 'offline'>('checking')
+  const [agentMode, setAgentMode] = useState<'checking' | 'gemini' | 'rules-demo' | 'offline'>('checking')
 
   useEffect(() => localStorage.setItem(storageKey, JSON.stringify(reports)), [reports])
   useEffect(() => {
     fetch(`${analysisApi}/api/health`)
       .then(async (response) => {
         if (!response.ok) throw new Error('Investigator unavailable')
-        const health = await response.json() as { mode: 'claude' | 'rules-demo' }
+        const health = await response.json() as { mode: 'gemini' | 'rules-demo' }
         setAgentMode(health.mode)
       })
       .catch(() => setAgentMode('offline'))
@@ -194,7 +194,7 @@ function App() {
           <button className={`nav-item ${page === 'Settings' ? 'active' : ''}`} onClick={() => setPage('Settings')}><Settings size={17} /><span>Settings</span></button>
           <div className="analyst-card">
             <div className="analyst-avatar">BL</div>
-            <span className="analyst-copy"><strong>AI Investigator</strong><small>{agentMode === 'claude' ? 'Claude agent' : agentMode === 'rules-demo' ? 'Rules demo · no key' : agentMode === 'offline' ? 'Service offline' : 'Connecting...'}</small></span>
+            <span className="analyst-copy"><strong>AI Investigator</strong><small>{agentMode === 'gemini' ? 'Gemini agent' : agentMode === 'rules-demo' ? 'Rules demo · no key' : agentMode === 'offline' ? 'Service offline' : 'Connecting...'}</small></span>
             <span className={`online-dot ${agentMode === 'offline' ? 'offline' : ''}`} />
           </div>
         </div>
@@ -232,7 +232,7 @@ function App() {
                 <div className="section-heading"><div><h2>Workspace</h2><p>Current project and local data preferences.</p></div></div>
                 <div className="setting-row"><div><strong>Active application</strong><span>ShopSphere</span></div><span className="setting-value">Local workspace</span></div>
                 <div className="setting-row"><div><strong>Report storage</strong><span>Saved in this browser using local storage.</span></div><span className="setting-value status-local"><span className="online-dot" /> On this device</span></div>
-                <div className="setting-row"><div><strong>Analysis engine</strong><span>{agentMode === 'claude' ? 'Claude analyzes evidence using a structured report schema.' : agentMode === 'rules-demo' ? 'Evidence-based rules are active. Set ANTHROPIC_API_KEY to enable Claude.' : agentMode === 'offline' ? 'The investigator API is unavailable on port 8002.' : 'Checking investigator service...'}</span></div><span className="setting-value">{agentMode === 'claude' ? 'Claude' : agentMode === 'rules-demo' ? 'Rules demo' : agentMode === 'offline' ? 'Offline' : 'Checking'}</span></div>
+                <div className="setting-row"><div><strong>Analysis engine</strong><span>{agentMode === 'gemini' ? 'Gemini analyzes evidence using a structured report schema.' : agentMode === 'rules-demo' ? 'Evidence-based rules are active. Set GEMINI_API_KEY to enable Gemini.' : agentMode === 'offline' ? 'The investigator API is unavailable on port 8002.' : 'Checking investigator service...'}</span></div><span className="setting-value">{agentMode === 'gemini' ? 'Gemini' : agentMode === 'rules-demo' ? 'Rules demo' : agentMode === 'offline' ? 'Offline' : 'Checking'}</span></div>
               </div>
               <div className="settings-section danger-section">
                 <div className="section-heading"><div><h2>Investigation data</h2><p>Clear reports saved in this browser.</p></div></div>
@@ -308,7 +308,7 @@ function ReportRow({ report, onClick }: { report: InvestigationReport; onClick: 
   </tr>
 }
 
-function NewInvestigation({ onClose, onSubmit, agentMode }: { onClose: () => void; onSubmit: (input: FailureInput) => Promise<void>; agentMode: 'checking' | 'claude' | 'rules-demo' | 'offline' }) {
+function NewInvestigation({ onClose, onSubmit, agentMode }: { onClose: () => void; onSubmit: (input: FailureInput) => Promise<void>; agentMode: 'checking' | 'gemini' | 'rules-demo' | 'offline' }) {
   const [form, setForm] = useState<FailureInput>({ ...emptyFailure, run_id: `RUN-${Math.floor(2900 + Math.random() * 99)}`, test_id: `TC-${Math.floor(100 + Math.random() * 899)}` })
   const [showMore, setShowMore] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -332,7 +332,7 @@ function NewInvestigation({ onClose, onSubmit, agentMode }: { onClose: () => voi
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="new-investigation-title">
-      <header className="modal-header"><div><span className="modal-kicker"><span className="eyebrow-line" /> FAILURE INTAKE</span><h2 id="new-investigation-title">New AI investigation</h2><p>{agentMode === 'claude' ? 'Claude will analyze the evidence and return a structured report.' : agentMode === 'rules-demo' ? 'The agent is in rules-demo mode until an Anthropic key is configured.' : 'Submit failure evidence to the investigator service.'}</p></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={19} /></button></header>
+      <header className="modal-header"><div><span className="modal-kicker"><span className="eyebrow-line" /> FAILURE INTAKE</span><h2 id="new-investigation-title">New AI investigation</h2><p>{agentMode === 'gemini' ? 'Gemini will analyze the evidence and return a structured report.' : agentMode === 'rules-demo' ? 'The agent is in rules-demo mode until a Gemini key is configured.' : 'Submit failure evidence to the investigator service.'}</p></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={19} /></button></header>
       <form onSubmit={submit}>
         <div className="form-scroll">
           <div className="form-section-label">TEST CONTEXT</div>

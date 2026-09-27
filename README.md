@@ -1,6 +1,6 @@
 🔍 BugLens AI - Intelligent Test Failure Analysis
 
-A runnable ShopSphere storefront and BugLens investigation dashboard prototype. A FastAPI investigator returns structured reports using evidence-based rules by default or Claude when `ANTHROPIC_API_KEY` is configured. Dashboard reports are saved in browser storage; there is no report database yet.
+A runnable ShopSphere storefront and BugLens investigation dashboard prototype. A FastAPI investigator returns structured reports using evidence-based rules by default or Gemini when `GEMINI_API_KEY` is configured. Dashboard reports are saved in browser storage; there is no report database yet.
 
 ShopSphere failure → captured evidence → BugLens report → source export
 
@@ -73,7 +73,7 @@ json
 │  🔧 Services (FastAPI)                              │
 │     ├─ ShopSphere Backend (with 3 bugs)            │
 │     ├─ Mock Payment API (failure simulator)        │
-│     └─ AI Investigator API (rules / optional Claude)│
+│     └─ AI Investigator API (rules / optional Gemini)│
 │                                                     │
 │  🧪 Automation (Playwright)                         │
 │     └─ Tests that trigger bugs                     │
@@ -191,7 +191,7 @@ Generate HTML Report
 bash
 pytest automation/tests/ --html=report.html --self-contained-html
 🤖 Failure Analysis
-The dashboard submits new and imported failures to the AI Investigator API at port 8002. Without `ANTHROPIC_API_KEY`, reports are generated in rules-demo mode and marked with `RULE_BASED_FALLBACK`; with a key, the agent requests a structured report from Claude.
+The dashboard submits new and imported failures to the AI Investigator API at port 8002. Without `GEMINI_API_KEY`, reports are generated in rules-demo mode and marked with `RULE_BASED_FALLBACK`; with a key, the agent requests a structured report from Gemini.
 🔑 Environment Variables
 
 Optional runtime setting:

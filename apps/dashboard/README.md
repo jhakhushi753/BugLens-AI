@@ -1,5 +1,5 @@
 The dashboard is a React and Vite investigation workspace. It includes an evidence intake form, structured reports, review flags, JSON export, ShopSphere failure import, and ShopSphere source export. New investigations and imported ShopSphere failures are analyzed by the FastAPI Investigator service.
-Open http://localhost:3001. Reports are saved in this browser's local storage. With ShopSphere running on port 8000 and the Investigator service on port 8002, **Import ShopSphere** analyzes starter and captured failures, and **Export application** downloads the source ZIP. Without `ANTHROPIC_API_KEY`, the investigator explicitly uses rules-demo mode; with a key, it asks Claude for the structured report.
+Open http://localhost:3001. Reports are saved in this browser's local storage. With ShopSphere running on port 8000 and the Investigator service on port 8002, **Import ShopSphere** analyzes starter and captured failures, and **Export application** downloads the source ZIP. Without `GEMINI_API_KEY`, the investigator explicitly uses rules-demo mode; with a key, it asks Gemini for the structured report.
 # BugLens Dashboard
 
 The dashboard is a React and Vite investigation workspace. It includes sample failures, an evidence intake form, structured reports, review flags, JSON export, ShopSphere failure import, and ShopSphere source export.
