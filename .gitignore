@@ -10,3 +10,4 @@ apps/shopsphere/backend/myenv/
 .pytest_cache/
 .vite/
 .DS_Store
+apps/shopsphere/backend/.env

@@ -10,6 +10,15 @@ From the repository root, start ShopSphere and BugLens together:
 docker compose up --build
 ```
 
+To enable the ShopSphere assistant, set your Gemini API key before starting the stack:
+
+```powershell
+$env:GEMINI_API_KEY = "your-api-key"
+docker compose up --build
+```
+
+The assistant opens from the floating button in the lower-right corner. Set `GEMINI_MODEL` to override the default `gemini-3.8-flash` model. Keep the key on the backend; it is never sent to the browser.
+
 - Storefront: http://localhost:3000
 - API / OpenAPI: http://localhost:8000/docs
 - Payment simulator: http://localhost:8003/health
@@ -33,6 +42,7 @@ The first three defects have regression tests in `automation/tests/test_shopsphe
 - `GET /api/products` catalog, optional `category` and `q` filters
 - `GET /api/cart`, `POST /api/cart/items`, `PATCH /api/cart/items/{product_id}`, `DELETE /api/cart/items/{product_id}`
 - `POST /api/checkout` simulated checkout
+- `POST /api/chat` Gemini-powered shopping assistant
 - `GET /api/buglens/failures` starter and captured failure evidence
 - `POST /api/buglens/failures` record a frontend or test failure
 - `GET /api/export` download a ZIP containing application source and QA tests

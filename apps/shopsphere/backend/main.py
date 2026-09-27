@@ -16,7 +16,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+from chatbot import ChatbotAgent, ChatRequest
 
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("shopsphere")
 
@@ -81,6 +84,14 @@ def send_payment(payload: dict[str, Any]) -> dict[str, Any]:
     )
     with urllib.request.urlopen(request, timeout=5) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+chatbot_agent = ChatbotAgent(PRODUCTS, CART, cart_snapshot)
+
+
+@app.post("/api/chat")
+def chat(request: ChatRequest) -> dict[str, str]:
+    return chatbot_agent.respond(request)
 
 
 @app.get("/api/health")
@@ -253,6 +264,7 @@ def export_application() -> StreamingResponse:
         "apps/shopsphere/README.md",
         "apps/shopsphere/docker-compose.yml",
         "apps/shopsphere/backend/main.py",
+        "apps/shopsphere/backend/chatbot.py",
         "apps/shopsphere/backend/requirements.txt",
         "apps/shopsphere/backend/Dockerfile",
         "apps/shopsphere/backend/README.md",

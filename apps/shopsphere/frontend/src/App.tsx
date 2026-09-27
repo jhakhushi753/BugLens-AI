@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
-  ArrowDown, ArrowRight, ArrowUpRight, Check, ChevronDown, Heart, Menu, Minus, Plus,
-  Search, ShieldCheck, ShoppingBag, Star, Truck, X,
+  ArrowDown, ArrowRight, ArrowUpRight, Check, ChevronDown, Expand, Heart, Menu, Minus, Plus,
+  Search, Send, ShieldCheck, ShoppingBag, Star, Truck, X,
 } from 'lucide-react'
 
 interface Product {
@@ -21,6 +21,7 @@ interface Product {
 
 interface CartLine { product: Product; quantity: number; line_total: number }
 interface Cart { items: CartLine[]; item_count: number; subtotal: number; shipping: number; currency: string }
+interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
 const API = (import.meta as ImportMeta & { env: { VITE_SHOPSPHERE_API?: string } }).env.VITE_SHOPSPHERE_API || 'http://localhost:8000'
 const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
@@ -191,8 +192,47 @@ function App() {
           <button className="checkout-button" type="submit" disabled={!cart.items.length}>Place order <ArrowRight size={16} /></button><span className="secure-note"><ShieldCheck size={13} /> Payment details are securely simulated for this demo.</span>
         </form></>}
       </section></div>}
+
+      <Chatbot />
     </div>
   )
+}
+
+function Chatbot() {
+  const [mode, setMode] = useState<'closed' | 'compact' | 'fullscreen'>('closed')
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'assistant', content: 'Hi, I am here to help you find something good for your day.' }])
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+
+  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const content = draft.trim()
+    if (!content || sending) return
+    const nextMessages = [...messages, { role: 'user' as const, content }]
+    setMessages(nextMessages)
+    setDraft('')
+    setError('')
+    setSending(true)
+    try {
+      const result = await request<{ reply: string }>('/api/chat', { method: 'POST', body: JSON.stringify({ messages: nextMessages }) })
+      setMessages((current) => [...current, { role: 'assistant', content: result.reply }])
+    } catch (chatError) {
+      setError(chatError instanceof Error ? chatError.message : 'The assistant could not reply.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (mode === 'closed') {
+    return <button className="chat-launcher" aria-label="Open ShopSphere assistant" onClick={() => setMode('compact')}><span className="chat-launcher-dot" /><span className="chat-launcher-label">Ask us</span><Send size={17} /></button>
+  }
+
+  return <section className={`chatbot ${mode === 'fullscreen' ? 'chatbot-fullscreen' : ''}`} aria-label="ShopSphere assistant">
+    <header className="chatbot-header"><div><span className="chatbot-kicker">SHOPSPHERE ASSISTANT</span><h2>Find your everyday.</h2></div><div className="chatbot-actions"><button className="icon-only" aria-label={mode === 'fullscreen' ? 'Shrink chat' : 'Expand chat'} onClick={() => setMode(mode === 'fullscreen' ? 'compact' : 'fullscreen')}><Expand size={17} /></button><button className="icon-only" aria-label="Close chat" onClick={() => setMode('closed')}><X size={18} /></button></div></header>
+    <div className="chatbot-messages" aria-live="polite">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={`${message.role}-${index}`}><span>{message.content}</span></div>)}{sending && <div className="chat-message assistant"><span className="chatbot-typing">Thinking<span>.</span><span>.</span><span>.</span></span></div>}{error && <p className="chatbot-error" role="alert">{error}</p>}</div>
+    <form className="chatbot-form" onSubmit={sendMessage}><input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask about the collection..." aria-label="Message ShopSphere assistant" /><button aria-label="Send message" disabled={!draft.trim() || sending}><Send size={16} /></button></form>
+  </section>
 }
 
 function ProductCard({ product, index, favorite, onFavorite, onAdd }: { product: Product; index: number; favorite: boolean; onFavorite: () => void; onAdd: () => void }) {

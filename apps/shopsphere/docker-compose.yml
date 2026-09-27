@@ -18,6 +18,8 @@ services:
     environment:
       PAYMENT_API_URL: http://payment-mock:8003
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
     depends_on:
       payment-mock:
         condition: service_healthy
